@@ -1,0 +1,100 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+#define totalSlots 4
+
+// === Ultrasonic Pins ===
+int trigPins[totalSlots] = {2, 4, 6, 8};
+int echoPins[totalSlots] = {3, 5, 7, 9};
+
+// === LEDs ===
+int greenLED[totalSlots] = {10, 12, A0, A2};
+int redLED[totalSlots]   = {11, 13, A1, A3};
+
+long duration;
+int distance;
+bool occupied[totalSlots];
+
+int threshold = 20;  // distance in cm to detect a car
+
+
+// ====== Distance Function ======
+int getDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH, 20000);
+  int dist = duration * 0.034 / 2;
+
+  if (dist <= 0 || dist > 300) return 300;  // no reading = empty
+  return dist;
+}
+
+
+// ====== SETUP ======
+void setup() {
+
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("   CAR PARKING  ");
+  delay(2000);
+
+  for (int i = 0; i < totalSlots; i++) {
+    pinMode(trigPins[i], OUTPUT);
+    pinMode(echoPins[i], INPUT);
+    pinMode(greenLED[i], OUTPUT);
+    pinMode(redLED[i], OUTPUT);
+  }
+}
+
+
+// ====== LOOP ======
+void loop() {
+
+  int freeCount = 0;
+
+  // Scan all slots
+  for (int i = 0; i < totalSlots; i++) {
+    int dist = getDistance(trigPins[i], echoPins[i]);
+
+    if (dist < threshold) {
+      occupied[i] = true;
+      digitalWrite(greenLED[i], LOW);
+      digitalWrite(redLED[i], HIGH);
+    } else {
+      occupied[i] = false;
+      digitalWrite(greenLED[i], HIGH);
+      digitalWrite(redLED[i], LOW);
+      freeCount++;
+    }
+  }
+
+  // Display status on LCD
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Free Slots: ");
+  lcd.print(freeCount);
+
+  lcd.setCursor(0,1);
+  lcd.print("S1:");
+  lcd.print(occupied[0] ? "X " : "O ");
+  lcd.print("S2:");
+  lcd.print(occupied[1] ? "X " : "O ");
+
+  delay(200);
+
+  lcd.setCursor(0,1);
+  lcd.print("S3:");
+  lcd.print(occupied[2] ? "X " : "O ");
+  lcd.print(" S4:");
+  lcd.print(occupied[3] ? "X" : "O");
+
+  delay(500);
+}
